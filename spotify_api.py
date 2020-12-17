@@ -1,10 +1,11 @@
+# Used and modified Gina Sprint's code from https://github.com/GonzagaCPSC222/U7-APIs-NLP/blob/master/APIFun/Spotify.ipynb
+
 import requests
 import json 
 import base64
 import numpy as np 
 import pandas as pd
 
-# TODO: move these into a file/environment variable external to the code
 client_ID = "9c36bcb992fa4c459a7c80cc941f9605"
 client_secret = "5818be1605f74f4eb4caf2b10f1e318b"
 
