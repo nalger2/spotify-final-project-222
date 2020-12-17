@@ -3,47 +3,63 @@ import numpy as np
 import datetime
 import matplotlib.pyplot as plt
 
+'''
+Loads spotify listening history to a dataframe from a csv file.
+'''
 def load_listening_history(filename):
     df = pd.read_csv(filename)
     return df
 
+'''
+Loads song library from a json file to a dataframe.
+'''
 def load_song_library(filename):
     df = pd.read_json(filename)
     df.to_csv("your_library.csv")
     return df
 
+'''
+Cleans endtime column from a string to datetime library object, adds day of week column to dataframe.
+'''
 def clean_endtime_column(df):
-    #remove end time column, add column for year, month, day, time
     endTime_ser = df.pop("endTime")
     endTime_ser = pd.to_datetime(endTime_ser, dayfirst=1)
-    #date = endTime_ser.dt.date
-    #time = endTime_ser.dt.time
     day_of_week = endTime_ser.dt.dayofweek
     df["end_time"] = endTime_ser
     df["day_of_week"] = day_of_week
-    #df["date"] = date
-    #df["time_of_day"] = time
 
+'''
+Cleans milliseconds played column to be datetime in minutes and seconds.
+'''
 def clean_msplayed_column(df):
     msplayed_ser = df.pop("msPlayed")
     msplayed_ser = pd.to_timedelta(msplayed_ser, unit='ms')
     df["time_played"] = msplayed_ser
 
+'''
+Adds a column for whether or not a song is considered skipped based on time played, the cutoff being 30 seconds. 
+'''
 def add_skipped_column(df):
     skipped_time = datetime.timedelta(seconds=30)
     df["skipped"] = df["time_played"] < skipped_time
 
+'''
+Adds a column for whether or not a song is located in my song library based on the library dataframe.
+'''
 def add_inlibrary_column(history_df, library_df):
     import warnings
     warnings.filterwarnings("ignore", 'This pattern has match groups')
     pd.options.mode.chained_assignment = None  # default='warn'
-    #history_df["in_library"] = library_df["track"].str.contains(history_df["trackName"].any() and library_df["artist"].str.contains(history_df["artistName"]).any()
     for i in range(len(history_df)): 
         if library_df["track"].str.contains(history_df.loc[i, "trackName"]).any() and library_df["artist"].str.contains(history_df.loc[i, "artistName"]).any():
             history_df.loc[i, "in_library"] = 1
         else:
             history_df.loc[i, "in_library"] = 0                                                  
 
+'''
+Creates a double visualization of songs and time listened per month of the whole year, 
+adjusting x ticks and colors accordingly
+'''
 def visualize_songs_per_month(df):
     #group by month
     grouped_by_month = df.groupby(pd.Grouper(key="end_time", freq='M'))
@@ -57,7 +73,7 @@ def visualize_songs_per_month(df):
         time_listened[group_name] = group_df["time_played"].sum()
     
     #2 plots on the same x axis
-    fig, ax1 = plt.subplots()
+    fig, ax1 = plt.subplots() 
 
     color = 'tab:red'
     ax1.set_xlabel('Month')
@@ -79,6 +95,9 @@ def visualize_songs_per_month(df):
     plt.show()
     return month_labels, grouped_by_month
 
+'''
+Creates a matplotlib double bar graph visualization of skips vs played songs per month.
+'''
 def visualize_skips_per_month(month_labels, grouped_by_month):
     skipped = pd.Series(dtype=float)
     unskipped = pd.Series(dtype=float)
@@ -96,7 +115,10 @@ def visualize_skips_per_month(month_labels, grouped_by_month):
     plt.title("Number of Skipped vs Played Songs")
     plt.xticks(x, month_labels, rotation=90)
     plt.show()
-    
+
+'''
+Visualizes June and July as pie graphs of skips vs played songs by percent.
+'''   
 def visualize_2month_skips(june, july):
     june_grouped = june.groupby("skipped")
     june_x = ["Played", "Skipped"]
@@ -117,7 +139,10 @@ def visualize_2month_skips(june, july):
     plt.pie(july_y, labels=july_x, autopct="%1.1f%%", colors=["yellow", "purple"])
     plt.title("July Skips Breakdown")
     plt.show()
-                                                                
+
+'''
+Visualizes June and July as pie graphs of songs in vs outside of my song library.
+'''                                                         
 def visualize_2month_discovery(june, july):
     june_grouped = june.groupby("in_library")
     june_x = ["Songs Not In Library", "Songs In Library"]
@@ -143,13 +168,18 @@ def visualize_2month_discovery(june, july):
     plt.title("July Song Discovery Breakdown")
     plt.show()
 
+'''
+Uses data grouping to find songs played per day in a month.
+'''
 def find_spd(month_listening_history):
     grouped_by_day = month_listening_history.groupby(pd.Grouper(key="end_time", freq='D'))
     spd = pd.Series()
     for group_name, group_df in grouped_by_day:
         spd[group_name] = group_df["trackName"].count()
     return spd.tolist()
-
+'''
+Uses data grouping to find total listening time by day in a month.
+'''
 def find_avg_tpd(month_listening_history):
     grouped_by_day = month_listening_history.groupby(pd.Grouper(key="end_time", freq='D'))
     tpd = pd.Series()
@@ -158,65 +188,4 @@ def find_avg_tpd(month_listening_history):
     tpd = tpd.tolist()
     avg = sum(tpd, datetime.timedelta(0)) / len(tpd)
     return avg
-
-
-
-    
-
-'''
-#test functions:
-#load datasets
-spotify_df = load_listening_history("StreamingHistoryALL.csv")
-library_df = load_song_library("YourLibrary.json")
-#clean listening history
-clean_endtime_column(spotify_df)
-clean_msplayed_column(spotify_df)
-add_skipped_column(spotify_df)
-
-#separate by month, to analyze by month
-#visualize songs per month
-month_labels, grouped_by_month = visualize_songs_per_month(spotify_df)
-
-#visualize skipped vs not skipped by month
-visualize_skips_per_month(month_labels, grouped_by_month)
-
-#JUNE & JULY DISCOVERY ANALYSIS
-june_listening_history = grouped_by_month.get_group("2020-06-30 00:00:00")
-july_listening_history = grouped_by_month.get_group("2020-07-31 00:00:00")
-
-#add in library column
-june_listening_history.reset_index(inplace=True)
-july_listening_history.reset_index(inplace=True)
-add_inlibrary_column(june_listening_history, library_df)
-add_inlibrary_column(july_listening_history, library_df)
-
-#Visualize June & July discovery
-visualize_2month_discovery(june_listening_history, july_listening_history)
-                                                                
-#visualize june and july skipped
-visualize_2month_skips(june_listening_history, july_listening_history)
-'''
-
-'''
-played_songs, skipped_songs = separate_skipped_songs(spotify_df)
-skipped_songs.to_csv("skipped.csv")
-
-#print(played_songs[1:50])
-played_songs.reset_index(inplace=True)
-skipped_songs.reset_index(inplace=True)
-#print(played_songs[1:50])
-
-#test_df = load_listening_history("testhistory.csv")
-#july_df = load_listening_history("spotify_streaming_history_july_2020.csv")
-#add_inlibrary_column(test_df, library_df)
-#add_inlibrary_column(july_df, library_df)
-
-add_inlibrary_column(played_songs, library_df)
-#add_inlibrary_column(skipped_songs, library_df)
-
-print(played_songs[300:350])
-#print(skipped_songs[300:350])
-
-'''
-
 
